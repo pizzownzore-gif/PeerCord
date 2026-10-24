@@ -1,0 +1,14 @@
+{
+  "name": "peercord-server",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Peercord dedicated server (pure Node, WebSocket)",
+  "main": "server.js",
+  "bin": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "build": "pkg . --targets node20-win-x64,node20-linux-x64,node20-linux-arm64 --out-path dist"
+  },
+  "dependencies": { "ws": "^8.18.0" },
+  "devDependencies": { "@yao-pkg/pkg": "^6.0.0" }
+}

@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Peercord</title>
+<!-- For the APK/EXE builds, download these three files into ./libs and point the src paths there. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<style>
+:root{--bg:#161922;--panel:#1d212d;--deep:#12141b;--hi:#2a2f3f;--tx:#dfe3ee;--mute:#8a92a8;--acc:#8b8cf8;--ok:#4cc38a;--bad:#ef6b73}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden}
+button,input{font:inherit;color:inherit}
+button{background:var(--hi);border:0;border-radius:8px;padding:9px 14px;cursor:pointer}
+button:hover{filter:brightness(1.2)}
+button.p{background:var(--acc);color:#12141b;font-weight:600}
+button.g{background:none;color:var(--mute);padding:6px 8px}
+input{background:var(--deep);border:1px solid var(--hi);border-radius:8px;padding:10px 12px;width:100%;outline:none}
+input:focus-visible,button:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+[hidden]{display:none!important}
+#landing{height:100%;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:var(--panel);border-radius:14px;padding:28px;width:100%;max-width:420px;display:grid;gap:12px;position:relative}
+.card h1{margin:0;font-size:26px}
+.card p{margin:0;color:var(--mute);font-size:13px}
+.row{display:flex;gap:8px}
+#app{height:100%;display:flex;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+aside{width:240px;background:var(--panel);display:flex;flex-direction:column;flex-shrink:0}
+#side header{padding:14px;font-weight:700;border-bottom:1px solid var(--deep);display:flex;justify-content:space-between;align-items:center}
+#side header small{color:var(--ok);font-weight:500}
+#side .scroll{flex:1;overflow-y:auto;padding:8px}
+.title{display:flex;justify-content:space-between;align-items:center;color:var(--mute);font-size:12px;font-weight:600;padding:12px 6px 4px}
+.ch{padding:6px 8px;border-radius:6px;cursor:pointer;color:var(--mute);display:flex;justify-content:space-between}
+.ch:hover{background:var(--hi);color:var(--tx)}
+.ch.on{background:var(--hi);color:#fff}
+.ch i{width:8px;height:8px;border-radius:50%;background:var(--acc);align-self:center}
+.vm{padding:3px 8px 3px 26px;color:var(--mute);font-size:14px;display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+#me{padding:10px;background:var(--deep);display:flex;align-items:center;gap:8px}
+#me .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.av{width:36px;height:36px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff}
+main{flex:1;display:flex;flex-direction:column;min-width:0}
+main>header{height:48px;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--deep)}
+main>header b{flex:1}
+.mob{display:none}
+#msgs{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:12px}
+.msg{display:flex;gap:12px}
+.msg small{color:var(--mute);margin-left:6px}
+.tx{white-space:pre-wrap;overflow-wrap:anywhere}
+.sys{color:var(--mute);font-size:13px;text-align:center}
+#comp{padding:12px;display:flex;gap:8px}
+#mbrs{width:220px;padding:12px;overflow-y:auto;border-left:1px solid var(--deep)}
+#mbrs h4{margin:0 0 10px;color:var(--mute);font-size:12px}
+.mb{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.mb .av{width:30px;height:30px;font-size:13px}
+.modal{position:fixed;inset:0;background:#000b;display:flex;align-items:center;justify-content:center;padding:20px;z-index:20}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--hi);padding:10px 16px;border-radius:8px;z-index:30;max-width:90%}
+.pic{max-width:min(320px,100%);border-radius:8px;margin-top:4px;cursor:zoom-in;display:block}
+.ch span{display:flex;align-items:center;gap:4px}.mb{cursor:pointer}.mb .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}.mb button{padding:2px 6px;font-size:12px}
+#comp .g{font-size:18px}
+@media(max-width:800px){
+ .mob{display:inline-block}
+ #side,#mbrs{position:fixed;top:0;bottom:0;z-index:10;transition:transform .2s;padding-top:env(safe-area-inset-top)}
+ #side{left:0;transform:translateX(-100%)}
+ #mbrs{right:0;transform:translateX(100%);background:var(--panel)}
+ #side.open,#mbrs.open{transform:none}
+}
+@media(prefers-reduced-motion:reduce){#side,#mbrs{transition:none}}
+</style>
+</head>
+<body>
+<div id="landing">
+ <div class="card">
+  <h1>Peercord</h1>
+  <p>Chat and voice straight between devices. No account, no central server. Messages are encrypted with a key that only lives in your invite.</p>
+  <input id="name" placeholder="Username" maxlength="24" autocomplete="off">
+  <button class="p" id="host">Host a server</button>
+  <p id="hostnote" hidden></p>
+  <div class="row"><input id="inv" placeholder="Paste invite" autocomplete="off"><button id="scan" title="Scan QR">Scan</button></div>
+  <button id="join">Join with invite</button>
+  <button class="g" id="wipe" hidden>Delete my server and its history</button>
+ </div>
+</div>
+<div id="app" hidden>
+ <aside id="side">
+  <header><span>Peercord</span><small id="role"></small></header>
+  <div class="scroll"><div id="chans"></div><div id="vc"></div></div>
+  <div id="me"></div>
+ </aside>
+ <main>
+  <header><button class="g mob" id="mnu" aria-label="Channels">☰</button><b id="cname"></b><button class="g mob" id="mem" aria-label="Members">👥</button></header>
+  <div id="msgs"></div>
+  <div id="comp"><button class="g" id="att" title="Send image">📎</button><input id="inp" placeholder="Message" maxlength="2000" autocomplete="off"><button class="p" id="snd">Send</button></div>
+ </main>
+ <aside id="mbrs"></aside>
+</div>
+<div id="toast" hidden></div>
+
+<script>
+'use strict';
+const $=(s)=>document.querySelector(s);
+const h=(tag,p={},...kids)=>{const e=document.createElement(tag);for(const k in p){const v=p[k];if(k==='class')e.className=v;else if(k.startsWith('on'))e.addEventListener(k.slice(2),v);else if(k==='style')e.style.cssText=v;else e[k]=v}
+ kids.flat().forEach(c=>{if(c===false||c==null)return;e.append(c.nodeType?c:document.createTextNode(c))});return e};
+const ICE=[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun.cloudflare.com:3478'}];
+const COL=['#8b8cf8','#e879a8','#f0a640','#4cc38a','#ef6b73','#38b6ff','#b57cf0'];
+const colorOf=id=>COL[[...String(id)].reduce((a,c)=>a+c.charCodeAt(0),0)%COL.length];
+const clean=(s,n)=>String(s==null?'':s).replace(/[\u0000-\u001f]/g,' ').trim().slice(0,n);
+const ls={get:k=>{try{return localStorage.getItem(k)}catch{return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch{}},del:k=>{try{localStorage.removeItem(k)}catch{}}};
+
+/* ---------- crypto: AES-256-GCM, one shared room key carried in the invite ---------- */
+let KEY=null;
+const b64=u=>{let s='';for(const x of u)s+=String.fromCharCode(x);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')};
+const unb64=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
+const importKey=raw=>crypto.subtle.importKey('raw',raw,'AES-GCM',false,['encrypt','decrypt']);
+async function enc(o,K=KEY){const iv=crypto.getRandomValues(new Uint8Array(12));
+ const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},K,new TextEncoder().encode(JSON.stringify(o))));
+ const out=new Uint8Array(12+ct.length);out.set(iv);out.set(ct,12);return b64(out)}
+async function dec(s,K=KEY){const u=unb64(s);return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:u.slice(0,12)},K,u.slice(12))))}
+
+/* ---------- state ---------- */
+const S={name:ls.get('pc_name')||'',peer:null,me:'',host:false,hostId:'',keyStr:'',hostConn:null,leaving:false,synced:false,fails:0,
+ channels:[{id:'general',name:'general'}],msgs:{general:[]},members:[],voice:[],active:'general',unread:{},adding:false,stick:true,bans:[],kp:null,pk:null,dkeys:new Map(),dms:{},dmn:{},deaf:false,preMute:false,admin:false,adminKey:'',ws:'',began:false,
+ inVoice:false,muted:false,stream:null,calls:new Map(),audios:new Map()};
+
+function toast(t){const e=$('#toast');e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,3500)}
+const save=()=>{if(S.host)ls.set('pc_host',JSON.stringify({id:S.hostId,key:S.keyStr,channels:S.channels,msgs:S.msgs,bans:S.bans,adminKey:S.adminKey},(k,v)=>k==='img'?undefined:v))};
+const pub=()=>S.members.map(({id,name,pk})=>({id,name,pk}));
+
+function mkPeer(id,onOpen,onTaken){
+ const p=new Peer(id||undefined,{config:{iceServers:ICE}});
+ p.on('open',onOpen);
+ p.on('disconnected',()=>{try{p.reconnect()}catch{}});
+ p.on('call',onCall);
+ p.on('error',e=>{
+  if(e.type==='unavailable-id'){if(onTaken){try{p.destroy()}catch{}return onTaken()}toast('This server is already running in another window.');leave()}
+  else if(e.type==='peer-unavailable'){/* host offline: connect() retry handles it */}
+  else toast('Network: '+e.type)});
+ return p}
+
+/* ---------- host side: this device acts as the server ---------- */
+async function startHost(){
+ S.name=clean($('#name').value,24);if(!S.name)return toast('Enter a username first.');ls.set('pc_name',S.name);
+ let d;try{d=JSON.parse(ls.get('pc_host'))}catch{}
+ d=d||{id:'pc'+b64(crypto.getRandomValues(new Uint8Array(9))).replace(/[^a-z0-9]/gi,'x'),key:b64(crypto.getRandomValues(new Uint8Array(32))),channels:[{id:'general',name:'general'}],msgs:{general:[]}};
+ d.adminKey=d.adminKey||b64(crypto.getRandomValues(new Uint8Array(16)));
+ Object.assign(S,{host:true,leaving:false,adminKey:d.adminKey,hostId:d.id,keyStr:d.key,channels:d.channels,msgs:d.msgs,bans:d.bans||[]});
+ KEY=await importKey(unb64(d.key));await initKP();
+ S.peer=mkPeer(d.id,()=>{S.me=S.peer.id;S.members=[{id:S.me,name:S.name,last:0,host:true,pk:S.pk}];
+  S.peer.on('connection',c=>{
+   c.on('data',async r=>{try{await handle(await dec(r),c.peer,c)}catch{if(!S.members.some(m=>m.c===c))c.close()}});
+   c.on('close',()=>drop(c.peer,c));c.on('error',()=>drop(c.peer,c))});
+  save();showApp();console.log('PEERCORD_INVITE pc:'+S.hostId+':'+S.keyStr);console.log('PEERCORD_ADMIN pc:'+S.hostId+':'+S.keyStr+':'+S.adminKey)})}
+
+async function handle(m,id,c){
+ const now=Date.now();let mem=S.members.find(x=>x.id===id);
+ if(m.t==='join'){
+  if(!c)return;if(S.bans.some(b=>b.id===id)){c.send(await enc({t:'kicked',ban:1}));setTimeout(()=>c.close(),300);return}if(mem&&mem.c&&mem.c!==c)try{mem.c.close()}catch{}
+  S.members=S.members.filter(x=>x.id!==id);S.members.push({id,name:clean(m.name,24)||'anon',last:now,c,admin:!!m.admin&&m.admin===S.adminKey,pk:m.pk&&m.pk.kty==='EC'?{kty:'EC',crv:'P-256',x:clean(m.pk.x,64),y:clean(m.pk.y,64)}:null});
+  c.send(await enc({t:'sync',channels:S.channels,msgs:S.msgs,members:pub(),voice:S.voice,admin:S.members.at(-1).admin,bans:S.members.at(-1).admin?S.bans:[]}));
+  await bc({t:'members',members:pub()},id);return sys(S.members.at(-1).name+' joined')}
+ if(!mem)return;mem.last=now;
+ if(m.t==='msg'){const text=clean(m.text,2000),ch=S.channels.find(x=>x.id===m.ch),img=okImg(m.img)?m.img:null;if((!text&&!img)||!ch)return;
+  const msg={id:crypto.randomUUID(),from:id,name:mem.name,text,ts:now};if(img){msg.img=img;msg.hi=1}
+  const a=S.msgs[ch.id]=S.msgs[ch.id]||[];a.push(msg);if(a.length>200)a.shift();a.filter(x=>x.img).slice(0,-10).forEach(x=>delete x.img);save();return bc({t:'msg',ch:ch.id,msg})}
+ if(m.t==='chan'&&(id===S.me||mem.admin)){
+  const n=clean(m.name,24).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  if(!n||S.channels.length>=20||S.channels.some(x=>x.id===n))return;
+  S.channels.push({id:n,name:n});S.msgs[n]=[];save();return bc({t:'chan',channels:S.channels})}
+ if((m.t==='kick'||m.t==='ban')&&(id===S.me||mem.admin)){const t=S.members.find(x=>x.id===m.id);if(!t||t.host)return;
+  if(m.t==='ban'){S.bans.push({id:t.id,name:t.name});save();pushBans()}
+  try{t.c.send(await enc({t:'kicked',ban:m.t==='ban'}))}catch{}
+  return setTimeout(()=>drop(t.id,t.c),300)}
+ if(m.t==='unban'&&(id===S.me||mem.admin)){S.bans=S.bans.filter(b=>b.id!==m.id);save();pushBans();return render()}
+ if(m.t==='rename'&&(id===S.me||mem.admin)){const n=clean(m.name,24).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''),c=S.channels.find(x=>x.id===m.id);
+  if(!c||!n||S.channels.some(x=>x.name===n&&x!==c))return;c.name=n;save();return bc({t:'chan',channels:S.channels})}
+ if(m.t==='dm'){const to=S.members.find(x=>x.id===m.to);if(!to||to.id===id||typeof m.d!=='string'||m.d.length>400000)return;
+  const o={t:'dm',from:id,d:m.d,ts:now};if(to.c)to.c.send(await enc(o));else apply(o);return}
+ if(m.t==='vjoin'){const prev=S.voice.filter(x=>x!==id);S.voice=[...prev,id];
+  if(c)c.send(await enc({t:'vpeers',list:prev}));else apply({t:'vpeers',list:prev});
+  return bc({t:'voice',list:S.voice})}
+ if(m.t==='vleave'){S.voice=S.voice.filter(x=>x!==id);return bc({t:'voice',list:S.voice})}
+}
+async function bc(o,except){
+ const e=await enc(o);
+ S.members.forEach(m=>{if(m.c&&m.c.open&&m.id!==except)try{m.c.send(e)}catch{}});
+ apply(o)}
+async function sys(text){const msg={id:crypto.randomUUID(),sys:1,text,ts:Date.now()};
+ (S.msgs.general=S.msgs.general||[]).push(msg);save();return bc({t:'msg',ch:'general',msg})}
+function pushBans(){S.members.forEach(async x=>{if(x.admin&&x.c&&x.c.open)x.c.send(await enc({t:'bans',list:S.bans}))})}
+function drop(id,c){
+ const m=S.members.find(x=>x.id===id);if(!m||m.host||(c&&m.c!==c))return;
+ S.members=S.members.filter(x=>x!==m);const was=S.voice.includes(id);S.voice=S.voice.filter(x=>x!==id);
+ try{m.c.close()}catch{}bc({t:'members',members:pub()});if(was)bc({t:'voice',list:S.voice});sys(m.name+' left')}
+
+/* ---------- client side ---------- */
+async function joinInvite(){
+ S.name=clean($('#name').value,24);if(!S.name)return toast('Enter a username first.');ls.set('pc_name',S.name);
+ let p=$('#inv').value.trim().split(':'),ws='';
+ if(p[0]==='pcw'&&p.length>=4){ws=p.slice(3).join(':');p=['pc','ws',p[1],p[2]==='-'?'':p[2]]}
+ if(p[0]!=='pc'||p.length<3||p.length>4)return toast('That invite looks wrong. It starts with pc: or pcw:');
+ try{KEY=await importKey(unb64(p[2]))}catch{return toast('That invite looks wrong.')}
+ Object.assign(S,{host:false,leaving:false,synced:false,fails:0,hostId:p[1],keyStr:p[2],adminKey:p[3]||'',ws,began:false,me:''});
+ await initKP();startGuest(ls.get('pc_id')||newId());toast('Connecting…')}
+function newId(){const i='pg'+b64(crypto.getRandomValues(new Uint8Array(9))).replace(/[^a-z0-9]/gi,'x');ls.set('pc_id',i);return i}
+function begin(){if(S.began)return;S.began=true;connect()}
+function tok(){let t=ls.get('pc_tok');if(!t){t=b64(crypto.getRandomValues(new Uint8Array(16)));ls.set('pc_tok',t)}return t}
+function startGuest(id){S.peer=mkPeer(id,()=>{if(!S.me)S.me=S.peer.id;begin()},()=>startGuest(newId()));
+ if(S.ws)setTimeout(()=>{if(!S.began&&!S.leaving){S.me=newId();begin()}},7000)}
+/* WebSocket link to a Peercord dedicated server, same interface as a PeerJS data connection */
+function wsConn(url){const w=new WebSocket(url),cb={},c={open:false,on(e,f){cb[e]=f},send(d){w.send(d)},close(){try{w.close()}catch{}}};
+ w.onopen=()=>{c.open=true;cb.open&&cb.open()};w.onmessage=e=>cb.data&&cb.data(e.data);w.onclose=()=>{c.open=false;cb.close&&cb.close()};w.onerror=()=>{};return c}
+function connect(){
+ if(S.leaving)return;
+ const c=S.ws?wsConn(S.ws):S.peer.connect(S.hostId,{reliable:true});S.hostConn=c;let open=false;
+ const t=setTimeout(()=>{if(!open){try{c.close()}catch{}retry()}},12000);
+ c.on('open',async()=>{open=true;clearTimeout(t);c.send(await enc({t:'join',name:S.name,pk:S.pk,admin:S.adminKey,id:S.me,tok:tok()}))});
+ c.on('data',async r=>{try{apply(await dec(r))}catch{}});
+ c.on('close',()=>{clearTimeout(t);if(S.leaving||S.hostConn!==c)return;if(open&&!S.synced)S.fails++;retry()})}
+function retry(){
+ if(S.leaving)return;
+ if(++S.fails>4&&!S.synced){toast('Could not join. Check the invite and that the host is online.');return leave()}
+ if(S.synced)toast('Connection lost. Reconnecting…');
+ setTimeout(connect,Math.min(1000*2**S.fails,15000))}
+async function send(o){
+ if(S.host)return handle(o,S.me,null);
+ if(S.hostConn&&S.hostConn.open)S.hostConn.send(await enc(o))}
+setInterval(()=>{
+ if(S.host){const t=Date.now()-35000;S.members.filter(m=>!m.host&&m.last<t).forEach(m=>drop(m.id,m.c))}
+ else if(S.synced)send({t:'ping'})},10000);
+
+/* shared reducer: runs on the host for its own broadcasts and on guests for incoming ones */
+function apply(m){
+ if(m.t==='kicked'){S.leaving=true;toast(m.ban?'You were banned from this server.':'You were removed from this server.');return leave()}
+ if(m.t==='dm')return onDM(m);
+ if(m.t==='members'||m.t==='sync')S.dkeys.clear();
+ const g=!S.host;
+ if(m.t==='sync'&&g){Object.assign(S,{channels:m.channels,msgs:m.msgs,members:m.members,voice:m.voice,admin:!!m.admin,bans:m.bans||[]});
+  if(!S.synced){S.synced=true;S.fails=0;showApp()}}
+ else if(m.t==='msg'){if(g)(S.msgs[m.ch]=S.msgs[m.ch]||[]).push(m.msg);
+  if(g&&S.msgs[m.ch].length>200)S.msgs[m.ch].shift();
+  if(m.ch!==S.active&&!m.msg.sys&&m.msg.from!==S.me)S.unread[m.ch]=1}
+ else if(m.t==='members'&&g)S.members=m.members;
+ else if(m.t==='bans'&&g)S.bans=m.list;
+ else if(m.t==='chan'&&g)S.channels=m.channels;
+ else if(m.t==='voice'){if(g)S.voice=m.list;for(const[p,c]of S.calls)if(!S.voice.includes(p))c.close()}
+ else if(m.t==='vpeers'){if(S.inVoice)m.list.forEach(callPeer)}
+ render()}
+
+/* ---------- voice: mesh of PeerJS media calls ---------- */
+async function joinVoice(){
+ try{S.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}})}
+ catch(e){return toast('Microphone unavailable: '+e.message)}
+ S.inVoice=true;S.muted=false;S.deaf=false;send({t:'vjoin'});render()}
+function leaveVoice(){
+ S.inVoice=false;S.deaf=false;if(S.stream)S.stream.getTracks().forEach(t=>t.stop());S.stream=null;
+ [...S.calls.values()].forEach(c=>c.close());S.calls.clear();
+ S.audios.forEach(a=>a.remove());S.audios.clear();send({t:'vleave'});render()}
+function onCall(call){if(!S.stream)return call.close();call.answer(S.stream);track(call)}
+function callPeer(id){if(!S.stream||id===S.me||S.calls.has(id))return;track(S.peer.call(id,S.stream))}
+function track(call){
+ const old=S.calls.get(call.peer);if(old&&old!==call)old.close();
+ S.calls.set(call.peer,call);
+ call.on('stream',st=>{const o=S.audios.get(call.peer);if(o)o.remove();
+  const a=h('audio',{autoplay:true,srcObject:st,muted:S.deaf});document.body.append(a);S.audios.set(call.peer,a)});
+ call.on('close',()=>{if(S.calls.get(call.peer)===call){S.calls.delete(call.peer);const a=S.audios.get(call.peer);if(a)a.remove();S.audios.delete(call.peer)}});
+ call.on('error',()=>call.close())}
+function setMic(){if(S.stream)S.stream.getAudioTracks().forEach(t=>t.enabled=!S.muted)}
+function toggleMute(){if(S.deaf)return toggleDeaf();S.muted=!S.muted;setMic();render()}
+function toggleDeaf(){S.deaf=!S.deaf;if(S.deaf){S.preMute=S.muted;S.muted=true}else S.muted=!!S.preMute;S.audios.forEach(a=>a.muted=S.deaf);setMic();render()}
+
+/* ---------- images, direct messages (end-to-end, per-pair ECDH keys), moderation ---------- */
+function okImg(s){return typeof s==='string'&&s.length<250000&&/^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/.test(s)}
+function pickImg(cb){const f=h('input',{type:'file',accept:'image/*',onchange:async()=>{const file=f.files[0];if(!file)return;
+ try{const bm=await createImageBitmap(file),k=Math.min(1,900/Math.max(bm.width,bm.height)),c=h('canvas',{width:Math.round(bm.width*k),height:Math.round(bm.height*k)}),x=c.getContext('2d');
+  x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(bm,0,0,c.width,c.height);
+  let q=.75,u;do{u=c.toDataURL('image/jpeg',q);q-=.15}while(u.length>150000&&q>.2);
+  okImg(u)?cb(u):toast('That image is too large.')}catch{toast('Could not read that image.')}}});f.click()}
+function zoom(src){const m=modal(h('img',{src,style:'max-width:100%;max-height:80vh;border-radius:8px;display:block;margin:auto'}),h('button',{onclick:()=>m.remove()},'Close'))}
+function ask(text,fn){const m=modal(h('p',{style:'color:var(--tx);font-size:15px'},text),h('div',{class:'row'},h('button',{class:'p',onclick:()=>{m.remove();fn()}},'Confirm'),h('button',{onclick:()=>m.remove()},'Cancel')))}
+function showBans(){const m=modal(h('h1',{},'Banned'),...S.bans.map(b=>h('div',{class:'row'},h('span',{style:'flex:1'},b.name),h('button',{onclick:()=>{send({t:'unban',id:b.id});m.remove()}},'Unban'))),h('button',{onclick:()=>m.remove()},'Close'))}
+async function initKP(){S.kp=await crypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'},false,['deriveKey']);S.pk=await crypto.subtle.exportKey('jwk',S.kp.publicKey)}
+async function dk(id){let k=S.dkeys.get(id);if(k)return k;const m=S.members.find(x=>x.id===id);if(!m||!m.pk)throw 0;
+ const pk=await crypto.subtle.importKey('jwk',m.pk,{name:'ECDH',namedCurve:'P-256'},false,[]);
+ k=await crypto.subtle.deriveKey({name:'ECDH',public:pk},S.kp.privateKey,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);S.dkeys.set(id,k);return k}
+function pushDM(peer,msg){const n=nameOf(peer);if(n!=='…')S.dmn[peer]=n;const a=S.dms[peer]=S.dms[peer]||[];a.push(msg);if(a.length>100)a.shift();render()}
+async function sendDM(to,text,img){try{const d=await enc({text,img},await dk(to));await send({t:'dm',to,d});pushDM(to,{from:S.me,name:S.name,text,img,ts:Date.now()})}catch{toast('Could not send. They may have left.')}}
+async function onDM(m){try{const o=await dec(m.d,await dk(m.from));
+ pushDM(m.from,{from:m.from,name:nameOf(m.from),text:clean(o.text,2000),img:okImg(o.img)?o.img:null,ts:Date.now()});
+ if(S.active!=='dm:'+m.from){S.unread['dm:'+m.from]=1;render()}}catch{}}
+function openDM(id){if(id===S.me)return;S.dms[id]=S.dms[id]||[];$('#mbrs').classList.remove('open');setActive('dm:'+id)}
+
+/* ---------- UI ---------- */
+function setActive(id){S.active=id;delete S.unread[id];S.stick=true;$('#side').classList.remove('open');render()}
+function nameOf(id){const m=S.members.find(x=>x.id===id);return m?m.name:'…'}
+const avatar=(id,name)=>h('div',{class:'av',style:'background:'+colorOf(id)},(name||'?')[0].toUpperCase());
+
+const isAdm=()=>S.host||S.admin;
+const rc=(el,...k)=>el.replaceChildren(...k.filter(x=>x!=null&&x!==false));
+function render(){
+ if($('#app').hidden)return;
+ $('#role').textContent=S.host?'● hosting':S.admin?'admin':'';
+ const dm=S.active.startsWith('dm:'),dp=dm?S.active.slice(3):'';const ch=dm?null:S.channels.find(x=>x.id===S.active)||S.channels[0];if(ch)S.active=ch.id;
+ const ttl=dm?'@'+(S.dmn[dp]||nameOf(dp)):'#'+(ch?ch.name:'');$('#cname').textContent=ttl;$('#inp').placeholder='Message '+ttl;$('#inp').disabled=dm&&!S.members.some(x=>x.id===dp);
+ const add=isAdm()&&S.adding?h('input',{placeholder:'new-channel',maxLength:24,autofocus:true,onkeydown:e=>{
+   if(e.key==='Enter'){send({t:'chan',name:e.target.value});S.adding=false;render()}else if(e.key==='Escape'){S.adding=false;render()}}}):null;
+ rc($('#chans'),
+  h('div',{class:'title'},'Text',isAdm()&&h('button',{class:'g',title:'New channel',onclick:()=>{S.adding=!S.adding;render()}},'+')),
+  add,...S.channels.map(c=>isAdm()&&S.renaming===c.id?h('input',{value:c.name,maxLength:24,onkeydown:e=>{if(e.key==='Enter'){send({t:'rename',id:c.id,name:e.target.value});S.renaming=null;render()}else if(e.key==='Escape'){S.renaming=null;render()}}}):h('div',{class:'ch'+(c.id===S.active?' on':''),onclick:()=>setActive(c.id)},'# '+c.name,h('span',{},S.unread[c.id]&&h('i'),isAdm()&&h('button',{class:'g',title:'Rename channel',style:'padding:0 4px',onclick:e=>{e.stopPropagation();S.renaming=c.id;render()}},'✎')))),Object.keys(S.dms).length>0&&h('div',{class:'title'},'Direct messages'),...Object.keys(S.dms).map(id=>{const k='dm:'+id;return h('div',{class:'ch'+(k===S.active?' on':''),onclick:()=>setActive(k)},'@ '+(S.dmn[id]||nameOf(id)),S.unread[k]&&h('i'))}));
+ const ri=$('#chans input');if(ri)ri.focus();
+ rc($('#vc'),
+  h('div',{class:'title'},'Voice'),
+  h('div',{class:'ch'+(S.inVoice?' on':''),onclick:()=>S.inVoice?leaveVoice():joinVoice()},'🔊 General',S.inVoice&&h('span',{},'leave')),
+  ...S.voice.map(id=>h('div',{class:'vm'},h('span',{class:'dot'}),nameOf(id)+(id===S.me&&S.deaf?' (deafened)':id===S.me&&S.muted?' (muted)':''))),
+  S.inVoice&&h('div',{class:'row',style:'padding:6px'},h('button',{onclick:toggleMute},S.muted?'Unmute':'Mute'),h('button',{onclick:toggleDeaf},S.deaf?'Undeafen':'Deafen')));
+ rc($('#me'),avatar(S.me,S.name),h('div',{class:'n'},S.name),
+  isAdm()&&h('button',{class:'p',onclick:showInvite},'Invite'),h('button',{class:'g',title:'Leave',onclick:leave},'Leave'));
+ rc($('#mbrs'),h('h4',{},'Online — '+S.members.length),...S.members.map(m=>h('div',{class:'mb',onclick:()=>openDM(m.id)},avatar(m.id,m.name),h('span',{class:'n'},m.name),
+  isAdm()&&m.id!==S.me&&h('button',{class:'g',onclick:e=>{e.stopPropagation();ask('Kick '+m.name+'? They can rejoin.',()=>send({t:'kick',id:m.id}))}},'Kick'),
+  isAdm()&&m.id!==S.me&&h('button',{class:'g',onclick:e=>{e.stopPropagation();ask('Ban '+m.name+'? They cannot rejoin from this device.',()=>send({t:'ban',id:m.id}))}},'Ban'))),
+  isAdm()&&S.bans.length>0&&h('button',{class:'g',onclick:showBans},'Banned ('+S.bans.length+')'));
+ const box=$('#msgs'),near=box.scrollHeight-box.scrollTop-box.clientHeight<80;
+ box.replaceChildren(...((dm?S.dms[dp]:S.msgs[S.active])||[]).map(m=>m.sys?h('div',{class:'sys'},m.text):
+  h('div',{class:'msg'},avatar(m.from,m.name),h('div',{},h('b',{style:'color:'+colorOf(m.from)},m.name||'?'),
+   h('small',{},new Date(m.ts).toLocaleString([],{hour:'2-digit',minute:'2-digit',month:'short',day:'numeric'})),h('div',{class:'tx'},m.text),okImg(m.img)&&h('img',{class:'pic',src:m.img,alt:'image',onclick:()=>zoom(m.img)}),m.hi&&!m.img&&h('div',{class:'sys'},'(image no longer stored)')))));
+ if(near||S.stick)box.scrollTop=box.scrollHeight;S.stick=false}
+
+function showApp(){$('#landing').hidden=true;$('#app').hidden=false;S.active=S.channels[0].id;S.stick=true;render()}
+function modal(...kids){const m=h('div',{class:'modal',onclick:e=>{if(e.target===m)m.remove()}},h('div',{class:'card'},...kids));document.body.append(m);return m}
+function showInvite(){
+ const inv=S.ws?`pcw:${S.keyStr}:-:${S.ws}`:`pc:${S.hostId}:${S.keyStr}`,cv=h('canvas',{style:'margin:auto;border-radius:8px;background:#fff'});
+ const f=h('input',{readOnly:true,value:inv,onfocus:e=>e.target.select()});
+ const m=modal(h('h1',{},'Invite people'),
+  h('p',{},'Anyone with this invite can join and read the chat. Share it privately. It stays valid until you delete your server.'),
+  cv,f,h('div',{class:'row'},h('button',{class:'p',onclick:()=>{f.select();(navigator.clipboard?navigator.clipboard.writeText(inv):Promise.reject()).then(()=>toast('Invite copied.'),()=>toast('Press and hold the text to copy.'))}},'Copy invite'),
+  h('button',{onclick:()=>m.remove()},'Close')));
+ if(window.QRious)new QRious({element:cv,value:inv,size:240});else cv.remove()}
+function scanQR(){
+ if(!window.Html5Qrcode)return toast('QR scanner library did not load.');
+ const r=h('div',{id:'reader',style:'width:100%'});let q;
+ const stop=()=>{try{q.stop().catch(()=>{})}catch{}m.remove()};
+ const m=modal(h('h1',{},'Scan invite'),r,h('button',{onclick:stop},'Cancel'));
+ q=new Html5Qrcode('reader');
+ q.start({facingMode:'environment'},{fps:10,qrbox:220},t=>{$('#inv').value=t;stop();joinInvite()},()=>{}).catch(e=>{toast('Camera unavailable: '+e);m.remove()})}
+
+function leave(){
+ S.leaving=true;if(S.inVoice)leaveVoice();
+ try{if(S.hostConn)S.hostConn.close()}catch{}try{if(S.peer)S.peer.destroy()}catch{}
+ Object.assign(S,{peer:null,hostConn:null,host:false,synced:false,members:[],voice:[],channels:[{id:'general',name:'general'}],msgs:{general:[]},unread:{},active:'general',bans:[],dms:{},dmn:{},dkeys:new Map(),deaf:false,kp:null,pk:null,admin:false,adminKey:'',ws:'',began:false,me:''});
+ KEY=null;$('#app').hidden=true;$('#landing').hidden=false;landing()}
+function landing(){
+ $('#name').value=S.name;const has=!!ls.get('pc_host');
+ $('#host').textContent=has?'Resume my server':'Host a server';
+ $('#hostnote').hidden=!has;$('#hostnote').textContent='Your server keeps the same invite and its history on this device. It is only online while the app is open.';
+ $('#wipe').hidden=!has}
+
+$('#host').onclick=startHost;$('#join').onclick=joinInvite;$('#scan').onclick=scanQR;
+$('#wipe').onclick=()=>{if($('#wipe').dataset.sure){ls.del('pc_host');delete $('#wipe').dataset.sure;landing();toast('Server deleted.')}
+ else{$('#wipe').dataset.sure=1;$('#wipe').textContent='Tap again to delete for good'}};
+$('#mnu').onclick=()=>{$('#mbrs').classList.remove('open');$('#side').classList.toggle('open')};
+$('#mem').onclick=()=>{$('#side').classList.remove('open');$('#mbrs').classList.toggle('open')};
+$('#msgs').onclick=()=>{$('#side').classList.remove('open');$('#mbrs').classList.remove('open')};
+function submit(){const i=$('#inp'),t=clean(i.value,2000);if(!t)return;i.value='';post(t,null)}
+function post(text,img){if(S.active.startsWith('dm:'))sendDM(S.active.slice(3),text,img);else send({t:'msg',ch:S.active,text,img})}
+$('#snd').onclick=submit;$('#att').onclick=()=>pickImg(u=>post('',u));$('#inp').onkeydown=e=>{if(e.key==='Enter'&&!e.isComposing)submit()};
+addEventListener('beforeunload',()=>{try{if(S.hostConn)S.hostConn.close()}catch{}});
+landing();
+/* Dedicated-server mode: Peercord.html?server=Name starts hosting immediately (used by server/server.js) */
+{const q=new URLSearchParams(location.search);if(q.has('server')){$('#name').value=q.get('server')||'Server';startHost()}}
+</script>
+</body>
+</html>
